@@ -666,6 +666,19 @@ func hasBeadsDatabase(beadsDir string) bool {
 			return true
 		}
 	}
+	// MySQL backend stores no on-disk database under .beads/; the connection
+	// is configured in metadata.json. Treat metadata.json with backend=mysql
+	// as a valid database marker so commands route through the mysql factory
+	// branch instead of erroring with "no beads database found".
+	if data, err := os.ReadFile(filepath.Join(beadsDir, "metadata.json")); err == nil {
+		// Cheap substring check rather than a full JSON parse — we just need
+		// a yes/no on backend=mysql. The configfile loader does the strict
+		// parse later in the command path.
+		if strings.Contains(string(data), `"backend":"mysql"`) ||
+			strings.Contains(string(data), `"backend": "mysql"`) {
+			return true
+		}
+	}
 	return false
 }
 
