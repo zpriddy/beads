@@ -19,6 +19,7 @@ import (
 	"github.com/steveyegge/beads/internal/debug"
 	"github.com/steveyegge/beads/internal/storage"
 	"github.com/steveyegge/beads/internal/storage/dolt"
+	"github.com/steveyegge/beads/internal/storage/mysql"
 	"github.com/steveyegge/beads/internal/types"
 )
 
@@ -45,6 +46,14 @@ func maybeAutoExport(ctx context.Context, serverMode, allowEmptyOverwrite bool) 
 	if os.Getenv("BD_GIT_HOOK") == "1" {
 		debug.Logf("auto-export: skipping — running as git hook\n")
 		return nil
+	}
+
+	// Piggyback the closed-bead TTL sweep here. The sweep is a no-op on
+	// dolt and throttled on mysql, so this is cheap on every invocation.
+	if store != nil {
+		if mysqlStore, ok := storage.UnwrapStore(store).(*mysql.MySQLStore); ok {
+			mysqlStore.MaybeSweepExpiredClosed(ctx)
+		}
 	}
 
 	if !config.GetBool("export.auto") {

@@ -22,5 +22,12 @@ func Bootstrap(ctx context.Context, cfg *Config) (*MySQLStore, error) {
 	if err != nil {
 		return nil, fmt.Errorf("mysql: bootstrap: %w", err)
 	}
+
+	// Run an initial closed-bead sweep so a fresh `bd init` against an
+	// existing database reclaims any backlog from prior sessions. The
+	// throttle (closed-sweep-interval) prevents this from hammering the DB
+	// when bd is invoked rapidly.
+	store.MaybeSweepExpiredClosed(ctx)
+
 	return store, nil
 }
