@@ -287,6 +287,18 @@ func checkServerReachable(host string, port int) DoctorCheck {
 // checkDoltVersion connects to the server and checks if it's a Dolt server
 // Returns the DoctorCheck and an open database connection (caller must close)
 func checkDoltVersion(cfg *configfile.Config, beadsDir string) (DoctorCheck, *sql.DB) {
+	// MySQL backend uses plain InnoDB; the dolt_version() probe is dolt-only.
+	// Skip the check entirely so doctor doesn't report a spurious failure.
+	if cfg != nil && cfg.GetBackend() == configfile.BackendMySQL {
+		return DoctorCheck{
+			Name:     "Dolt Version",
+			Status:   StatusOK,
+			Message:  "Skipped (mysql backend)",
+			Detail:   "Project uses the mysql backend; dolt_version() is dolt-only.",
+			Category: CategoryFederation,
+		}, nil
+	}
+
 	host := cfg.GetDoltServerHost()
 	port := doltserver.DefaultConfig(beadsDir).Port
 	user := cfg.GetDoltServerUser()

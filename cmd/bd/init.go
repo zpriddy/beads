@@ -200,20 +200,27 @@ Non-interactive mode (--non-interactive or BD_NON_INTERACTIVE=1):
 			externalConfig = &cfg
 		}
 
-		// Handle --backend flag: "dolt" is the only supported backend.
-		// "sqlite" is accepted for backward compatibility but prints a
-		// deprecation notice and exits with an error.
+		// Handle --backend flag: "dolt" is the default; "mysql" selects the
+		// plain InnoDB backend (see internal/storage/mysql/). "sqlite" is
+		// accepted for backward compatibility but prints a deprecation
+		// notice and exits with an error.
 		if backendFlag == "sqlite" {
 			fmt.Fprintf(os.Stderr, "%s The SQLite backend has been removed.\n\n", ui.RenderWarn("⚠ DEPRECATED:"))
-			fmt.Fprintf(os.Stderr, "Dolt is now the default (and only) storage backend for beads.\n")
+			fmt.Fprintf(os.Stderr, "Dolt is now the default storage backend for beads.\n")
 			fmt.Fprintf(os.Stderr, "To initialize with Dolt:\n")
 			fmt.Fprintf(os.Stderr, "  bd init\n\n")
 			fmt.Fprintf(os.Stderr, "To import issues from an existing JSONL export:\n")
 			fmt.Fprintf(os.Stderr, "  bd init --from-jsonl\n\n")
 			fmt.Fprintf(os.Stderr, "See: https://github.com/gastownhall/beads/blob/main/docs/DOLT.md\n")
 			os.Exit(1)
+		} else if backendFlag == configfile.BackendMySQL {
+			// MySQL init takes a fully separate path: no Dolt server, no
+			// federation plumbing, just connect to MySQL, run migrations,
+			// and write metadata.json.
+			runMySQLInit(rootCtx, prefix, database, serverHost, serverPort, serverUser, quiet)
+			return
 		} else if backendFlag != "" && backendFlag != "dolt" {
-			FatalError("unknown backend %q: only \"dolt\" is supported", backendFlag)
+			FatalError("unknown backend %q: supported backends are \"dolt\" and \"mysql\"", backendFlag)
 		}
 
 		// Validate --database format early, before any side effects.

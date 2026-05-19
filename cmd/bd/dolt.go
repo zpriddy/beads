@@ -70,6 +70,27 @@ Examples:
   bd dolt set host 192.168.1.100 --update-config
   bd dolt set data-dir /home/user/.beads-dolt/myproject
   bd dolt test`,
+	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+		// Short-circuit when the configured backend is mysql: every bd dolt
+		// subcommand is dolt-only (push/pull/status/start/stop/etc.) and the
+		// mysql backend has no equivalent. Print a concise message and exit
+		// cleanly so scripts don't see a stack trace.
+		beadsDir := beads.FindBeadsDir()
+		if beadsDir == "" {
+			return nil
+		}
+		cfg, err := configfile.Load(beadsDir)
+		if err != nil || cfg == nil {
+			return nil
+		}
+		if cfg.GetBackend() == configfile.BackendMySQL {
+			return fmt.Errorf("'bd %s' is not available on the mysql backend\n"+
+				"  The mysql backend uses plain InnoDB and has no version-control,\n"+
+				"  push/pull, history, or server-lifecycle features.\n"+
+				"  Switch this project to the dolt backend if you need them.", cmd.CommandPath())
+		}
+		return nil
+	},
 }
 
 var doltShowCmd = &cobra.Command{

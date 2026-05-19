@@ -17,7 +17,7 @@ const ConfigFileName = "metadata.json"
 
 type Config struct {
 	Database string `json:"database"`
-	Backend  string `json:"backend,omitempty"` // Deprecated: always "dolt". Kept for JSON compat.
+	Backend  string `json:"backend,omitempty"` // "dolt" (default) or "mysql".
 
 	// Deletions configuration
 	DeletionsRetentionDays int `json:"deletions_retention_days,omitempty"` // 0 means use default (3 days)
@@ -169,7 +169,8 @@ func (c *Config) GetStaleClosedIssuesDays() int {
 
 // Backend constants
 const (
-	BackendDolt = "dolt"
+	BackendDolt  = "dolt"
+	BackendMySQL = "mysql"
 )
 
 // BackendCapabilities describes behavioral constraints for a storage backend.
@@ -204,9 +205,19 @@ func (c *Config) GetCapabilities() BackendCapabilities {
 	return CapabilitiesForBackend(backend)
 }
 
-// GetBackend returns the backend type. Always returns "dolt".
+// GetBackend returns the backend type. Defaults to "dolt" for backward
+// compatibility; "mysql" selects the plain InnoDB backend (see
+// internal/storage/mysql/).
 func (c *Config) GetBackend() string {
-	return BackendDolt
+	if c == nil {
+		return BackendDolt
+	}
+	switch strings.ToLower(c.Backend) {
+	case BackendMySQL:
+		return BackendMySQL
+	default:
+		return BackendDolt
+	}
 }
 
 // Dolt mode constants
