@@ -752,6 +752,14 @@ func resolveAndCookFormulaWithVars(formulaName string, searchPaths []string, con
 			return nil, fmt.Errorf("filtering steps by condition: %w", err)
 		}
 		resolved.Steps = filteredSteps
+
+		// Substitute {{var}} placeholders in step fields and metadata. Without
+		// this, wisps materialized via `bd mol wisp --var k=v` (and other
+		// callers passing conditionVars through this path) end up with literal
+		// "{{scenario}}" strings on their step beads. The cook command does
+		// this in its persist/dry-run paths via substituteFormulaVars; the
+		// wisp/pour/seed/bond paths reuse this function and need the same.
+		substituteFormulaVars(resolved, mergedVars)
 	}
 
 	// Handle standalone expansion formulas (bd-qzb).
@@ -776,7 +784,35 @@ func resolveAndCookFormulaWithVars(formulaName string, searchPaths []string, con
 	}
 
 	// Cook to in-memory subgraph, including variable definitions for default handling
-	return cookFormulaToSubgraphWithVars(resolved, resolved.Formula, resolved.Vars)
+	subgraph, err := cookFormulaToSubgraphWithVars(resolved, resolved.Formula, resolved.Vars)
+	if err != nil {
+		return nil, err
+	}
+
+	// When vars are provided (runtime-mode wisp/pour), persist them onto
+	// the root issue's metadata as `formula.vars.<key>`. Step beads already
+	// get substituted values via substituteStepVars (called above); this
+	// captures the raw vars on the root so downstream agents can walk
+	// parent → root and recover the scenario (or any var) without needing
+	// it on every step. Skip if no vars or the subgraph is empty.
+	if len(conditionVars) > 0 && subgraph != nil && len(subgraph.Issues) > 0 {
+		root := subgraph.Issues[0]
+		// Issue.Metadata is json.RawMessage, so merge by parsing existing
+		// (if any), adding our keys, then re-marshaling. Empty metadata is
+		// the common case for fresh wisps.
+		existing := map[string]interface{}{}
+		if len(root.Metadata) > 0 {
+			_ = json.Unmarshal(root.Metadata, &existing)
+		}
+		for k, v := range conditionVars {
+			existing["formula.vars."+k] = v
+		}
+		if blob, err := json.Marshal(existing); err == nil {
+			root.Metadata = blob
+		}
+	}
+
+	return subgraph, nil
 }
 
 // cookFormulaToSubgraphWithVars creates an in-memory subgraph with variable info attached
@@ -1051,6 +1087,14 @@ func substituteStepVars(steps []*formula.Step, vars map[string]string) {
 			step.Gate.ID = substituteVariables(step.Gate.ID, vars)
 			step.Gate.AwaitID = substituteVariables(step.Gate.AwaitID, vars)
 			step.Gate.Timeout = substituteVariables(step.Gate.Timeout, vars)
+		}
+		// Substitute string values in metadata. Other types (numbers, bools)
+		// pass through unchanged. This lets formulas templatize routing/scenario
+		// metadata (e.g. {"gc.scenario" = "{{scenario}}"}) just like Title/Description.
+		for k, v := range step.Metadata {
+			if s, ok := v.(string); ok {
+				step.Metadata[k] = substituteVariables(s, vars)
+			}
 		}
 		if len(step.Children) > 0 {
 			substituteStepVars(step.Children, vars)
