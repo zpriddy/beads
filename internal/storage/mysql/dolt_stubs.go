@@ -144,21 +144,9 @@ func (s *MySQLStore) RemoveFederationPeer(_ context.Context, _ string) error {
 }
 
 // =============================================================================
-// CompactionStore — Dolt commit-history compaction.
+// CompactionStore — implemented in compact.go (delegates to issueops; the
+// underlying queries are portable SQL, no dolt-specific table functions).
 // =============================================================================
-
-func (s *MySQLStore) CheckEligibility(_ context.Context, _ string, _ int) (bool, string, error) {
-	return false, "", notSupported("CheckEligibility")
-}
-func (s *MySQLStore) ApplyCompaction(_ context.Context, _ string, _ int, _ int, _ int, _ string) error {
-	return notSupported("ApplyCompaction")
-}
-func (s *MySQLStore) GetTier1Candidates(_ context.Context) ([]*types.CompactionCandidate, error) {
-	return nil, notSupported("GetTier1Candidates")
-}
-func (s *MySQLStore) GetTier2Candidates(_ context.Context) ([]*types.CompactionCandidate, error) {
-	return nil, notSupported("GetTier2Candidates")
-}
 
 // =============================================================================
 // BulkIssueStore extras — methods we already implement satisfy most of the
