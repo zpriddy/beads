@@ -36,8 +36,11 @@ var initCmd = &cobra.Command{
 	Long: `Initialize bd in the current directory by creating a .beads/ directory
 and Dolt database. Optionally specify a custom issue prefix.
 
-Dolt is the default (and only supported) storage backend. The legacy SQLite
-backend has been removed. Use --backend=sqlite to see migration instructions.
+Dolt is the default storage backend. Pass --backend=mysql to use the
+plain InnoDB backend instead (no version control, no push/pull, no
+history; closed beads auto-export to .beads/closed/<YYYY-MM>.jsonl).
+The legacy SQLite backend has been removed. Use --backend=sqlite to
+see migration instructions.
 
 Use --database to specify an existing server database name, overriding the
 default prefix-based naming. This is useful when an external tool (e.g. an orchestrator)
@@ -1660,7 +1663,7 @@ func init() {
 	initCmd.Flags().String("role", "", "Set beads role without prompting: \"maintainer\" or \"contributor\"")
 
 	// Backend selection (dolt is the only supported backend; sqlite accepted for deprecation notice)
-	initCmd.Flags().String("backend", "", "Storage backend (default: dolt). --backend=sqlite prints deprecation notice.")
+	initCmd.Flags().String("backend", "", "Storage backend: \"dolt\" (default) or \"mysql\". --backend=sqlite prints deprecation notice.")
 
 	// Dolt server connection flags
 	initCmd.Flags().Bool("server", false, "Use external dolt sql-server instead of embedded engine")
