@@ -50,9 +50,6 @@ func (s *MySQLStore) DeleteBranch(_ context.Context, _ string) error {
 func (s *MySQLStore) ListBranches(_ context.Context) ([]string, error) {
 	return nil, notSupported("ListBranches")
 }
-func (s *MySQLStore) GetCurrentCommit(_ context.Context) (string, error) {
-	return "", notSupported("GetCurrentCommit")
-}
 func (s *MySQLStore) Status(_ context.Context) (*storage.Status, error) {
 	return nil, notSupported("Status")
 }
