@@ -81,6 +81,11 @@ func acquireEmbeddedLock(beadsDir string, serverMode bool) (util.Unlocker, error
 // auto-sanitized to underscores and the fix is persisted to metadata.json.
 func newDoltStoreFromConfig(ctx context.Context, beadsDir string) (storage.DoltStorage, error) {
 	cfg, err := configfile.Load(beadsDir)
+	// MySQL backend: route to the mysql package. Returns *mysql.MySQLStore
+	// which satisfies DoltStorage via stubs in internal/storage/mysql/dolt_stubs.go.
+	if err == nil && cfg != nil && cfg.GetBackend() == configfile.BackendMySQL {
+		return openMySQLStoreFromConfig(ctx, beadsDir, cfg)
+	}
 	if err == nil && cfg != nil && cfg.IsDoltProxiedServerMode() {
 		// TODO: this needs to be uow provider
 		return nil, fmt.Errorf("proxy server store should be uow provider")
@@ -154,6 +159,9 @@ func migrateHyphenatedDB(beadsDir string, cfg *configfile.Config, oldName, newNa
 // hydration from mutating foreign projects (GH#3231).
 func newReadOnlyStoreFromConfig(ctx context.Context, beadsDir string) (storage.DoltStorage, error) {
 	cfg, err := configfile.Load(beadsDir)
+	if err == nil && cfg != nil && cfg.GetBackend() == configfile.BackendMySQL {
+		return openMySQLStoreFromConfig(ctx, beadsDir, cfg)
+	}
 	if err == nil && cfg != nil && cfg.IsDoltProxiedServerMode() {
 		// TODO: this needs to be uow provider
 		return nil, fmt.Errorf("proxy server store needs to be uow provider")
