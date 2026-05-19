@@ -72,11 +72,16 @@ func (s *MySQLStore) CloseIssueWithExport(ctx context.Context, id, reason, actor
 		return fmt.Errorf("close issue: append closed export: %w", err)
 	}
 
-	// Step 5: delete the issue + auxiliary rows. Idempotent — if the delete
-	// fails after a successful export, the next close re-appends; JSONL
-	// consumers tolerate dupes (they can dedupe by issue.ID + closed_at).
-	if err := s.deleteAfterExport(ctx, id); err != nil {
-		return fmt.Errorf("close issue: delete after export: %w", err)
+	// Step 5: delete the issue + auxiliary rows, OR defer to the sweep when
+	// mysql.closed-ttl > 0. closeIssueRespectTTL handles all three modes:
+	//   - TTL > 0  → no-op (sweep will reclaim later)
+	//   - TTL == 0 → immediate delete (legacy behavior)
+	//   - never    → no-op forever (operator opted out)
+	// Idempotency note for the immediate-delete branch: if delete fails
+	// after a successful export, the next close re-appends; JSONL consumers
+	// tolerate dupes (they can dedupe by issue.ID + closed_at).
+	if err := s.closeIssueRespectTTL(ctx, id); err != nil {
+		return fmt.Errorf("close issue: %w", err)
 	}
 	return nil
 }

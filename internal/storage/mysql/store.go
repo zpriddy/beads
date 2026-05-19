@@ -65,6 +65,10 @@ type MySQLStore struct {
 	blockedIDsCacheMap           map[string]bool
 	blockedIDsCached             bool
 	blockedIDsCacheIncludesWisps bool
+
+	// ttlState gates the closed-bead sweep (see closed_ttl.go). Per-store
+	// so multiple opens against the same database don't double-sweep.
+	ttlState closedTTLState
 }
 
 // DB returns the underlying *sql.DB. Use sparingly; prefer the typed methods
