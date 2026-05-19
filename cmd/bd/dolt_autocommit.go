@@ -61,6 +61,13 @@ func maybeAutoCommitStore(ctx context.Context, st storage.DoltStorage, p doltAut
 		return nil
 	}
 
+	// MySQL backend: there's no version-control commit to perform. Skip
+	// silently so write commands don't surface "Commit is not supported on
+	// the mysql backend" warnings to the user.
+	if isMySQLBackend() {
+		return nil
+	}
+
 	msg := p.MessageOverride
 	if strings.TrimSpace(msg) == "" {
 		msg = formatDoltAutoCommitMessage(p.Command, getActor(), p.IssueIDs)

@@ -1028,7 +1028,18 @@ var rootCmd = &cobra.Command{
 		// Removing them WILL cause unrecoverable data corruption and data loss.
 		// Dolt manages these files itself; external interference is never safe.
 
-		store, err = newDoltStore(rootCtx, doltCfg)
+		// MySQL backend: skip the dolt server / embedded-dolt path entirely
+		// and open a MySQL store from the persisted metadata.json. The
+		// returned store satisfies storage.DoltStorage via stubs (see
+		// internal/storage/mysql/dolt_stubs.go) so the global `store`
+		// variable can keep its DoltStorage type — dolt-specific calls on
+		// the mysql store return a uniform "not supported" error rather
+		// than nil-deref.
+		if cfg != nil && cfg.GetBackend() == configfile.BackendMySQL {
+			store, err = openMySQLStoreFromConfig(rootCtx, beadsDir, cfg)
+		} else {
+			store, err = newDoltStore(rootCtx, doltCfg)
+		}
 
 		// Track final read-only state for staleness checks (GH#1089)
 		storeIsReadOnly = doltCfg.ReadOnly
@@ -1112,9 +1123,16 @@ var rootCmd = &cobra.Command{
 				uowProvider = nil
 			}
 		} else {
+			// MySQL backend: skip dolt-only auto-commit / tip-commit machinery.
+			// The mysql store stubs return notSupported errors for Commit/
+			// CommitWithConfig/etc., which would bubble up here as fatal "dolt
+			// auto-commit failed" errors. Mysql has no version-control commit
+			// to perform, so the right behavior is to skip these hooks entirely.
+			mysqlBackend := isMySQLBackend()
+
 			// Dolt auto-commit: after a successful write command (and after final flush),
 			// create a Dolt commit so changes don't remain only in the working set.
-			if commandDidWrite.Load() && !commandDidExplicitDoltCommit {
+			if !mysqlBackend && commandDidWrite.Load() && !commandDidExplicitDoltCommit {
 				if err := maybeAutoCommit(rootCtx, doltAutoCommitParams{Command: cmd.Name()}); err != nil {
 					FatalError("dolt auto-commit failed: %v", err)
 				}
@@ -1122,7 +1140,7 @@ var rootCmd = &cobra.Command{
 
 			// Tip metadata auto-commit: if a tip was shown, create a separate Dolt commit for the
 			// tip_*_last_shown metadata updates. This may happen even for otherwise read-only commands.
-			if commandDidWriteTipMetadata && len(commandTipIDsShown) > 0 {
+			if !mysqlBackend && commandDidWriteTipMetadata && len(commandTipIDsShown) > 0 {
 				// Only applies when dolt auto-commit is enabled and backend is versioned (Dolt).
 				if mode, err := getDoltAutoCommitMode(); err != nil {
 					FatalError("dolt tip auto-commit failed: %v", err)
