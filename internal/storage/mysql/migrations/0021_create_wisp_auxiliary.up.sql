@@ -22,9 +22,9 @@ CREATE TABLE IF NOT EXISTS wisp_events (
     issue_id VARCHAR(255) NOT NULL,
     event_type VARCHAR(32) NOT NULL,
     actor VARCHAR(255) DEFAULT '',
-    old_value TEXT DEFAULT '',
-    new_value TEXT DEFAULT '',
-    comment TEXT DEFAULT '',
+    old_value TEXT,
+    new_value TEXT,
+    comment TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_wisp_events_issue (issue_id)
 );
