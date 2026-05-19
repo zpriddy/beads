@@ -48,6 +48,9 @@ func acquireEmbeddedLock(_ string, _ bool) (util.Unlocker, error) {
 // newDoltStoreFromConfig creates a SQL-server-backed storage backend from config.
 func newDoltStoreFromConfig(ctx context.Context, beadsDir string) (storage.DoltStorage, error) {
 	cfg, err := configfile.Load(beadsDir)
+	if err == nil && cfg != nil && cfg.GetBackend() == configfile.BackendMySQL {
+		return openMySQLStoreFromConfig(ctx, beadsDir, cfg)
+	}
 	if err == nil && cfg != nil && cfg.IsDoltProxiedServerMode() {
 		// Proxied-server workspaces have no classic store backend; they are
 		// served through the UOW provider by commands with a proxied
@@ -63,6 +66,9 @@ func newDoltStoreFromConfig(ctx context.Context, beadsDir string) (storage.DoltS
 // newReadOnlyStoreFromConfig creates a read-only SQL-server-backed storage backend.
 func newReadOnlyStoreFromConfig(ctx context.Context, beadsDir string) (storage.DoltStorage, error) {
 	cfg, err := configfile.Load(beadsDir)
+	if err == nil && cfg != nil && cfg.GetBackend() == configfile.BackendMySQL {
+		return openMySQLStoreFromConfig(ctx, beadsDir, cfg)
+	}
 	if err == nil && cfg != nil && cfg.IsDoltProxiedServerMode() {
 		// Proxied-server workspaces have no classic store backend (see
 		// newDoltStoreFromConfig); read-only cross-repo opens hit this too.
