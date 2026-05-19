@@ -9,7 +9,7 @@ SHELL := $(subst cmd,bin,$(subst git.exe,bash.exe,$(GIT_BASH)))
 endif
 endif
 
-.PHONY: all build test test-icu-path test-full-cgo test-regression test-upgrade test-cross-version test-migration bench bench-quick clean clean-test-tmp install install-force help check-up-to-date fmt fmt-check
+.PHONY: all build build-zp test test-icu-path test-full-cgo test-regression test-upgrade test-cross-version test-migration bench bench-quick clean clean-test-tmp install install-force help check-up-to-date fmt fmt-check
 
 # Default target
 all: build
@@ -60,6 +60,43 @@ ifeq ($(shell uname),Darwin)
 	@echo "Signed bd for macOS"
 endif
 endif
+
+# Fork-build counter file — bumped manually each time we apply or change
+# our fork-only patches on top of the current upstream SHA. Restarts at 1
+# whenever the upstream short SHA in $(GIT_BUILD) changes (i.e. when we
+# rebase onto a new upstream).
+ZP_FORK_VERSION_FILE := .zp-fork-version
+ZP_FORK_COUNTER := $(shell cat $(ZP_FORK_VERSION_FILE) 2>/dev/null | tr -d '[:space:]')
+ZP_BUILD := $(GIT_BUILD)-zp.$(ZP_FORK_COUNTER)
+# Apple developer cert for signing fork builds. Override on the make line:
+#   make build-zp ZP_CODESIGN_IDENTITY="-"
+# to ad-hoc-sign instead. If the identity is not present in the keychain
+# (e.g. CI), the codesign step prints a warning and continues.
+ZP_CODESIGN_IDENTITY ?= Apple Development: Zak Priddy (9ULEP73AAX)
+
+# Build the bd binary tagged with the zp.<n> fork suffix.
+# Convention: <upstream-short-sha>-zp.<n> — lets us tell forked builds
+# apart from upstream at a glance via `bd version`.
+build-zp:
+	@if [ -z "$(ZP_FORK_COUNTER)" ]; then \
+		echo "ERROR: $(ZP_FORK_VERSION_FILE) missing or empty. Create it with an integer (e.g. echo 1 > $(ZP_FORK_VERSION_FILE))." >&2; \
+		exit 1; \
+	fi
+	@echo "Building bd (fork build: $(ZP_BUILD))..."
+ifeq ($(OS),Windows_NT)
+	go build -tags "$(BUILD_TAGS)" -ldflags="-X main.Build=$(ZP_BUILD)" -o $(BUILD_DIR)/bd.exe ./cmd/bd
+else
+	go build -tags "$(BUILD_TAGS)" -ldflags="-X main.Build=$(ZP_BUILD)" -o $(BUILD_DIR)/bd ./cmd/bd
+ifeq ($(shell uname),Darwin)
+	@if codesign -s "$(ZP_CODESIGN_IDENTITY)" -f $(BUILD_DIR)/bd 2>/dev/null; then \
+		echo "Signed bd with: $(ZP_CODESIGN_IDENTITY)"; \
+	else \
+		echo "WARNING: codesign with '$(ZP_CODESIGN_IDENTITY)' failed; falling back to ad-hoc signature" >&2; \
+		codesign -s - -f $(BUILD_DIR)/bd 2>/dev/null || true; \
+	fi
+endif
+endif
+	@echo "Built: $(BUILD_DIR)/bd ($(ZP_BUILD))"
 
 # Run all tests (skips known broken tests listed in .test-skip)
 test:
@@ -208,6 +245,7 @@ clean-test-tmp:
 help:
 	@echo "Beads Makefile targets:"
 	@echo "  make build        - Build the bd binary"
+	@echo "  make build-zp     - Build bd with fork version <sha>-zp.<n> (reads .zp-fork-version)"
 	@echo "  make test         - Run all tests"
 	@echo "  make test-icu-path - Run opt-in ICU regex path tests (maintainer-only)"
 	@echo "  make test-full-cgo - Deprecated alias for make test-icu-path"
