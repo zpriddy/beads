@@ -183,14 +183,11 @@ func (s *MySQLStore) UpdateIssueType(ctx context.Context, id string, issueType s
 	return s.UpdateIssue(ctx, id, map[string]interface{}{"issue_type": issueType}, actor)
 }
 
-// CloseIssue closes an issue with a reason. The closed-bead JSONL export hooks
-// in via the wrapper installed in closed_export.go (Phase 4); this raw method
-// performs only the in-DB transition.
+// CloseIssue closes an issue with a reason. The closed-bead JSONL export
+// (see closed_export.go) wraps this method by first calling closeIssueRaw,
+// then exporting + deleting when closed-export.enabled is true.
 func (s *MySQLStore) CloseIssue(ctx context.Context, id string, reason string, actor string, session string) error {
-	// Phase 4 will wrap this with the JSONL export. For now the export is
-	// installed via closeIssueRaw; the public CloseIssue method is overridden
-	// in closed_export.go.
-	return s.closeIssueRaw(ctx, id, reason, actor, session)
+	return s.CloseIssueWithExport(ctx, id, reason, actor, session)
 }
 
 // closeIssueRaw performs the in-DB close without the JSONL export step.
