@@ -174,24 +174,9 @@ func (s *MySQLStore) DeleteIssuesBySourceRepo(_ context.Context, _ string) (int,
 }
 
 // =============================================================================
-// AdvancedQueryStore extras — repo mtime bookkeeping.
+// AdvancedQueryStore extras — repo mtime bookkeeping is implemented in
+// repo_mtime.go (delegates to issueops; uses the regular repo_mtimes table).
 // =============================================================================
-
-// GetRepoMtime / SetRepoMtime / ClearRepoMtime: the repo_mtimes table mirrors
-// the dolt_ignored local-state pattern; on mysql it's just a regular table.
-// Implementations delegate to issueops.
-
-func (s *MySQLStore) GetRepoMtime(_ context.Context, _ string) (int64, error) {
-	return 0, notSupported("GetRepoMtime")
-}
-
-func (s *MySQLStore) SetRepoMtime(_ context.Context, _ string, _ string, _ int64) error {
-	return notSupported("SetRepoMtime")
-}
-
-func (s *MySQLStore) ClearRepoMtime(_ context.Context, _ string) error {
-	return notSupported("ClearRepoMtime")
-}
 
 // =============================================================================
 // DependencyQueryStore extras.
