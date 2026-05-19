@@ -428,6 +428,13 @@ func findLocalBeadsDir() string {
 func findDatabaseInBeadsDir(beadsDir string, _ bool) string {
 	// Check for metadata.json first (single source of truth)
 	if cfg, err := configfile.Load(beadsDir); err == nil && cfg != nil {
+		// MySQL backend: the "database" is a connection string, not an
+		// on-disk path. Returning beadsDir signals "yes, a database is
+		// configured here" without pointing at a directory that doesn't
+		// exist. Downstream callers (cmd/bd) check the backend explicitly.
+		if cfg.GetBackend() == configfile.BackendMySQL {
+			return beadsDir
+		}
 		// For Dolt server mode, database is on the server - no local directory required
 		if cfg.IsDoltServerMode() {
 			return cfg.DatabasePath(beadsDir)
