@@ -27,12 +27,16 @@ import (
 	"github.com/steveyegge/beads/internal/storage"
 )
 
-// Compile-time interface checks. The mysql backend deliberately satisfies
-// only the core Storage interface — version-control / federation /
-// history capability sub-interfaces are out of scope (see the package
-// doc and beads-mysql-implementation-plan.md).
+// Compile-time interface checks. The mysql backend satisfies the full
+// storage.DoltStorage surface because cmd/bd's store factory contract
+// returns DoltStorage and 20+ call sites depend on it. The dolt-only
+// methods (push/pull/history/federation/compaction/...) are stubbed in
+// dolt_stubs.go and return a uniform "not supported on the mysql backend"
+// error — callers must short-circuit on cfg.GetBackend() before invoking
+// them (see cmd/bd/dolt.go's PersistentPreRunE pattern).
 var (
 	_ storage.Storage          = (*MySQLStore)(nil)
+	_ storage.DoltStorage      = (*MySQLStore)(nil)
 	_ storage.RawDBAccessor    = (*MySQLStore)(nil)
 	_ storage.LifecycleManager = (*MySQLStore)(nil)
 )
