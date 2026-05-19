@@ -43,6 +43,9 @@ func acquireEmbeddedLock(_ string, _ bool) (util.Unlocker, error) {
 // newDoltStoreFromConfig creates a SQL-server-backed storage backend from config.
 func newDoltStoreFromConfig(ctx context.Context, beadsDir string) (storage.DoltStorage, error) {
 	cfg, err := configfile.Load(beadsDir)
+	if err == nil && cfg != nil && cfg.GetBackend() == configfile.BackendMySQL {
+		return openMySQLStoreFromConfig(ctx, beadsDir, cfg)
+	}
 	if err == nil && cfg != nil && cfg.IsDoltProxiedServerMode() {
 		// TODO: this needs to be uow provider
 		return nil, fmt.Errorf("proxy server store should be uow provider")
@@ -61,6 +64,9 @@ func newDoltStoreFromConfig(ctx context.Context, beadsDir string) (storage.DoltS
 // newReadOnlyStoreFromConfig creates a read-only SQL-server-backed storage backend.
 func newReadOnlyStoreFromConfig(ctx context.Context, beadsDir string) (storage.DoltStorage, error) {
 	cfg, err := configfile.Load(beadsDir)
+	if err == nil && cfg != nil && cfg.GetBackend() == configfile.BackendMySQL {
+		return openMySQLStoreFromConfig(ctx, beadsDir, cfg)
+	}
 	if err == nil && cfg != nil && cfg.IsDoltProxiedServerMode() {
 		// TODO: this needs to be uow provider
 		return nil, fmt.Errorf("proxy server store needs to be uow provider")
