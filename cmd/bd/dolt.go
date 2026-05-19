@@ -84,7 +84,7 @@ Examples:
 			return nil
 		}
 		if cfg.GetBackend() == configfile.BackendMySQL {
-			return fmt.Errorf("'bd %s' is not available on the mysql backend\n"+
+			return fmt.Errorf("'%s' is not available on the mysql backend\n"+
 				"  The mysql backend uses plain InnoDB and has no version-control,\n"+
 				"  push/pull, history, or server-lifecycle features.\n"+
 				"  Switch this project to the dolt backend if you need them.", cmd.CommandPath())
