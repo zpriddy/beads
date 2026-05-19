@@ -69,10 +69,10 @@ func (s *MySQLStore) ResolveConflicts(_ context.Context, _ string, _ string) err
 // =============================================================================
 // HistoryViewer — bd show --history, bd diff, --as-of reads.
 // =============================================================================
+// History() is implemented in versioned.go (events-table-backed). AsOf and
+// Diff remain stubbed: InnoDB has no row-level snapshot history, so true
+// time-travel reads aren't expressible.
 
-func (s *MySQLStore) History(_ context.Context, _ string) ([]*storage.HistoryEntry, error) {
-	return nil, notSupported("History")
-}
 func (s *MySQLStore) AsOf(_ context.Context, _ string, _ string) (*types.Issue, error) {
 	return nil, notSupported("AsOf")
 }
