@@ -32,7 +32,7 @@ import (
 // history capability sub-interfaces are out of scope (see the package
 // doc and beads-mysql-implementation-plan.md).
 //
-// The Storage assertion is added in Phase 2 once the CRUD methods are in
+// The Storage assertion is added in Phase 3 once the full method set is in
 // place; the auxiliary capability assertions can land now because they
 // only depend on DB() / IsClosed() / Close() — all defined here.
 var (
