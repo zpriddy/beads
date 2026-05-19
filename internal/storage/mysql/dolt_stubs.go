@@ -31,15 +31,29 @@ func notSupported(op string) error {
 
 func (s *MySQLStore) Branch(_ context.Context, _ string) error   { return notSupported("Branch") }
 func (s *MySQLStore) Checkout(_ context.Context, _ string) error { return notSupported("Checkout") }
-func (s *MySQLStore) Commit(_ context.Context, _ string) error   { return notSupported("Commit") }
+
+// Commit is a no-op on the mysql backend. MySQL's transaction log auto-commits
+// every INSERT/UPDATE, so there's no working-set to commit. Returning nil
+// silences the "failed to commit" warning that fired in the dolt-era code path
+// without changing behavior — the data is already persisted.
+//
+// TODO: proper fix is a capability check (e.g. a Committer interface that
+// callers can type-assert against) so cmd/bd consumers skip Commit() entirely
+// on backends that don't need it. Filed as a separate bead.
+func (s *MySQLStore) Commit(_ context.Context, _ string) error { return nil }
 func (s *MySQLStore) CommitWithConfig(_ context.Context, _ string) error {
-	return notSupported("CommitWithConfig")
+	return nil
 }
 func (s *MySQLStore) CommitPending(_ context.Context, _ string) (bool, error) {
-	return false, notSupported("CommitPending")
+	// false = "no pending commit was made" — mysql has no working-set state;
+	// every write is auto-committed. Callers that loop on CommitPending will
+	// see false and proceed without erroring.
+	return false, nil
 }
 func (s *MySQLStore) CommitExists(_ context.Context, _ string) (bool, error) {
-	return false, notSupported("CommitExists")
+	// MySQL has no commit graph. Return false so callers that gate on
+	// "does this commit exist?" treat it as missing without erroring.
+	return false, nil
 }
 func (s *MySQLStore) CurrentBranch(_ context.Context) (string, error) {
 	return "", notSupported("CurrentBranch")
