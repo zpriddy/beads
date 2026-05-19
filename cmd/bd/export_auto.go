@@ -78,30 +78,7 @@ func maybeAutoExport(ctx context.Context, serverMode, allowEmptyOverwrite bool) 
 	// dump of the issues table would be a separate feature.
 	if cfg, err := configfile.Load(beadsDir); err == nil && cfg != nil &&
 		cfg.GetBackend() == configfile.BackendMySQL {
-		return
-	}
-
-	// Load state and check throttle
-	state := loadExportAutoState(beadsDir)
-	interval := config.GetDuration("export.interval")
-	if interval == 0 {
-		interval = 60 * time.Second
-	}
-	if !state.Timestamp.IsZero() && time.Since(state.Timestamp) < interval {
-		debug.Logf("auto-export: throttled (last export %s ago, interval %s)\n",
-			time.Since(state.Timestamp).Round(time.Second), interval)
-		return
-	}
-
-	// Change detection via Dolt commit hash
-	currentCommit, err := store.GetCurrentCommit(ctx)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: auto-export skipped: failed to get current commit: %v\n", err)
-		return
-	}
-	if currentCommit == state.LastDoltCommit && state.LastDoltCommit != "" {
-		debug.Logf("auto-export: no changes since last export\n")
-		return
+		return nil
 	}
 
 	// Resolve the export path before applying it so all decisions refer to
