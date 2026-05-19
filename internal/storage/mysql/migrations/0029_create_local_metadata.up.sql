@@ -6,5 +6,5 @@
 -- empty by EnsureIgnoredTables after server restart, branch checkout, or clone.
 CREATE TABLE IF NOT EXISTS local_metadata (
     `key` VARCHAR(255) PRIMARY KEY,
-    value TEXT NOT NULL DEFAULT ''
+    value TEXT NOT NULL
 );
