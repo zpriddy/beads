@@ -31,11 +31,8 @@ import (
 // only the core Storage interface — version-control / federation /
 // history capability sub-interfaces are out of scope (see the package
 // doc and beads-mysql-implementation-plan.md).
-//
-// The Storage assertion is added in Phase 3 once the full method set is in
-// place; the auxiliary capability assertions can land now because they
-// only depend on DB() / IsClosed() / Close() — all defined here.
 var (
+	_ storage.Storage          = (*MySQLStore)(nil)
 	_ storage.RawDBAccessor    = (*MySQLStore)(nil)
 	_ storage.LifecycleManager = (*MySQLStore)(nil)
 )
