@@ -15,7 +15,7 @@ func (s *MySQLStore) GetReadyWork(ctx context.Context, filter types.WorkFilter) 
 	var result []*types.Issue
 	err := s.withReadTx(ctx, func(tx *sql.Tx) error {
 		var err error
-		result, err = issueops.GetReadyWorkInTx(ctx, tx, filter, s.computeBlockedIDsForReadyWork)
+		result, err = issueops.GetReadyWorkInTx(ctx, tx, filter)
 		return err
 	})
 	return result, err
@@ -64,11 +64,17 @@ func (s *MySQLStore) GetStatistics(ctx context.Context) (*types.Statistics, erro
 		return nil, fmt.Errorf("failed to get statistics: %w", err)
 	}
 
-	// Blocked count via cached computeBlockedIDs.
-	blockedIDs, err := s.computeBlockedIDs(ctx, true)
-	blockedCount := 0
-	if err == nil {
-		blockedCount = len(blockedIDs)
+	// Blocked count via the is_blocked column (added by migration 0046).
+	// Mirrors dolt.GetStatistics post-be-7daa14: a single indexed lookup
+	// instead of recomputing the dependency graph.
+	var blockedCount int
+	if err := s.withReadTx(ctx, func(tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM issues
+			WHERE is_blocked = 1 AND status <> 'closed' AND status <> 'pinned'
+		`).Scan(&blockedCount)
+	}); err != nil {
+		return nil, fmt.Errorf("failed to count blocked issues: %w", err)
 	}
 	stats.BlockedIssues = blockedCount
 	stats.ReadyIssues = stats.OpenIssues - blockedCount
@@ -76,50 +82,6 @@ func (s *MySQLStore) GetStatistics(ctx context.Context) (*types.Statistics, erro
 		stats.ReadyIssues = 0
 	}
 	return stats, nil
-}
-
-// computeBlockedIDs returns the set of issue IDs that are blocked.
-func (s *MySQLStore) computeBlockedIDs(ctx context.Context, includeWisps bool) ([]string, error) {
-	var result []string
-	err := s.withReadTx(ctx, func(tx *sql.Tx) error {
-		var err error
-		result, err = s.computeBlockedIDsForReadyWork(ctx, tx, includeWisps)
-		return err
-	})
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (s *MySQLStore) computeBlockedIDsForReadyWork(ctx context.Context, tx *sql.Tx, includeWisps bool) ([]string, error) {
-	s.cacheMu.Lock()
-	if s.blockedIDsCached && (s.blockedIDsCacheIncludesWisps || !includeWisps) {
-		result := s.blockedIDsCache
-		s.cacheMu.Unlock()
-		return result, nil
-	}
-	s.cacheMu.Unlock()
-
-	result, _, err := issueops.ComputeBlockedIDsInTx(ctx, tx, includeWisps)
-	if err != nil {
-		return nil, err
-	}
-	blockedSet := make(map[string]bool, len(result))
-	for _, id := range result {
-		blockedSet[id] = true
-	}
-
-	s.cacheMu.Lock()
-	defer s.cacheMu.Unlock()
-	if s.blockedIDsCached && (s.blockedIDsCacheIncludesWisps || !includeWisps) {
-		return s.blockedIDsCache, nil
-	}
-	s.blockedIDsCache = result
-	s.blockedIDsCacheMap = blockedSet
-	s.blockedIDsCached = true
-	s.blockedIDsCacheIncludesWisps = includeWisps
-	return result, nil
 }
 
 // GetMoleculeProgress returns progress stats for a molecule.
@@ -321,4 +283,28 @@ func (s *MySQLStore) getWispsByIDs(ctx context.Context, ids []string) ([]*types.
 		}
 	}
 	return out, nil
+}
+
+// GetReadyWorkWithCounts returns ready work plus dependency counts.
+// Mirrors dolt.GetReadyWorkWithCounts (be-7daa14).
+func (s *MySQLStore) GetReadyWorkWithCounts(ctx context.Context, filter types.WorkFilter) ([]*types.IssueWithCounts, error) {
+	var result []*types.IssueWithCounts
+	err := s.withReadTx(ctx, func(tx *sql.Tx) error {
+		var err error
+		result, err = issueops.GetReadyWorkWithCountsInTx(ctx, tx, filter)
+		return err
+	})
+	return result, err
+}
+
+// SearchIssuesWithCounts returns issues matching query+filter plus dependency counts.
+// Mirrors dolt.SearchIssuesWithCounts (be-7daa14).
+func (s *MySQLStore) SearchIssuesWithCounts(ctx context.Context, query string, filter types.IssueFilter) ([]*types.IssueWithCounts, error) {
+	var result []*types.IssueWithCounts
+	err := s.withReadTx(ctx, func(tx *sql.Tx) error {
+		var err error
+		result, err = issueops.SearchIssuesWithCountsInTx(ctx, tx, query, filter)
+		return err
+	})
+	return result, err
 }

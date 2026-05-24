@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/steveyegge/beads/internal/storage"
 	"github.com/steveyegge/beads/internal/storage/issueops"
@@ -149,7 +150,7 @@ func (s *MySQLStore) ClaimReadyIssue(ctx context.Context, filter types.WorkFilte
 	var claimed *types.Issue
 	err := s.withRetryTx(ctx, func(tx *sql.Tx) error {
 		var err error
-		claimed, err = issueops.ClaimReadyIssueInTx(ctx, tx, filter, actor, s.computeBlockedIDsForReadyWork)
+		claimed, err = issueops.ClaimReadyIssueInTx(ctx, tx, filter, actor)
 		return err
 	})
 	if err != nil {
@@ -460,3 +461,35 @@ func (s *MySQLStore) invalidateBlockedIDsCache() {
 // (Asserted at end of issues.go since most methods are defined here / siblings.)
 // =============================================================================
 // The full assertion lives in store.go after all methods are in place.
+
+// CountIssues returns the number of issues matching query and filter.
+// Filter.Limit and Filter.Offset are ignored; all other fields apply.
+// Mirrors dolt.CountIssues (be-7daa14).
+func (s *MySQLStore) CountIssues(ctx context.Context, query string, filter types.IssueFilter) (int64, error) {
+	var n int64
+	err := s.withReadTx(ctx, func(tx *sql.Tx) error {
+		whereClauses, args, err := issueops.BuildIssueFilterClauses(query, filter, issuesFilterTables)
+		if err != nil {
+			return err
+		}
+		where := ""
+		if len(whereClauses) > 0 {
+			where = " WHERE " + strings.Join(whereClauses, " AND ")
+		}
+		//nolint:gosec // table name is a static constant; placeholders are bound
+		q := fmt.Sprintf(`SELECT count(*) FROM issues%s`, where)
+		return tx.QueryRowContext(ctx, q, args...).Scan(&n)
+	})
+	return n, err
+}
+
+// CountIssueComments returns the number of comments on an issue.
+// Mirrors dolt.CountIssueComments (be-7daa14).
+func (s *MySQLStore) CountIssueComments(ctx context.Context, issueID string) (int64, error) {
+	var n int64
+	err := s.withReadTx(ctx, func(tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			`SELECT count(*) FROM comments WHERE issue_id = ?`, issueID).Scan(&n)
+	})
+	return n, err
+}
