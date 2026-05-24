@@ -79,9 +79,24 @@ SET @sql = IF(@needs_migrate = 1,
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @sql = IF(@needs_migrate = 1,
-    'ALTER TABLE wisp_dependencies ADD CONSTRAINT fk_wisp_dep_wisp_target FOREIGN KEY (depends_on_wisp_id) REFERENCES wisps(id) ON DELETE CASCADE ON UPDATE CASCADE',
+SET @sql = IF(@needs_migrate = 1,
+    'ALTER TABLE wisp_dependencies ADD INDEX idx_wisp_dep_type_target (type, depends_on_id)',
     'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(@needs_migrate = 1,
+    'ALTER TABLE wisp_dependencies ADD CONSTRAINT fk_wisp_dep_issue FOREIGN KEY (issue_id) REFERENCES wisps(id) ON DELETE CASCADE ON UPDATE CASCADE',
+    'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- NOTE: fk_wisp_dep_wisp_target intentionally omitted.
+-- MySQL 9 rejects: "Cannot add foreign key on the base column of stored column."
+-- because depends_on_id is a STORED generated column derived from
+-- COALESCE(depends_on_issue_id, depends_on_wisp_id, depends_on_external),
+-- and an FK on depends_on_wisp_id (a base column of that stored column) is
+-- not allowed. The CHECK constraint and indexes below preserve the rest of
+-- the integrity story; cascading deletes on wisp -> wisp_dependencies are
+-- enforced via the existing fk_wisp_dep_issue (issue_id -> wisps.id) FK.
 
 SET @sql = IF(@needs_migrate = 1,
     'ALTER TABLE wisp_dependencies ADD CONSTRAINT fk_wisp_dep_issue_target FOREIGN KEY (depends_on_issue_id) REFERENCES issues(id) ON DELETE CASCADE ON UPDATE CASCADE',
