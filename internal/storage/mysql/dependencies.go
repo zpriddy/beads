@@ -246,3 +246,74 @@ func scanDependencyRows(rows *sql.Rows) ([]*types.Dependency, error) {
 	}
 	return deps, rows.Err()
 }
+
+// CountDependencies returns the number of issues that issueID depends on.
+// Counts both `dependencies` and `wisp_dependencies` so the total matches
+// GetDependenciesWithMetadata: a wisp's outgoing edges live in wisp_dependencies,
+// a permanent issue's in dependencies. Mirrors dolt.CountDependencies (be-7daa14).
+func (s *MySQLStore) CountDependencies(ctx context.Context, issueID string) (int64, error) {
+	var n int64
+	err := s.withReadTx(ctx, func(tx *sql.Tx) error {
+		var perm, wisp int64
+		if err := tx.QueryRowContext(ctx,
+			`SELECT count(*) FROM dependencies WHERE issue_id = ?`, issueID).Scan(&perm); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx,
+			`SELECT count(*) FROM wisp_dependencies WHERE issue_id = ?`, issueID).Scan(&wisp); err != nil {
+			return err
+		}
+		n = perm + wisp
+		return nil
+	})
+	return n, err
+}
+
+// CountDependents returns the number of issues that depend on issueID.
+// Mirrors dolt.CountDependents (be-7daa14). On MySQL the query planner
+// resolves the STORED generated column `depends_on_id` directly under
+// count(*), so we don't need the COALESCE workaround that dolt uses.
+func (s *MySQLStore) CountDependents(ctx context.Context, issueID string) (int64, error) {
+	var n int64
+	err := s.withReadTx(ctx, func(tx *sql.Tx) error {
+		var perm, wisp int64
+		if err := tx.QueryRowContext(ctx,
+			`SELECT count(*) FROM dependencies WHERE depends_on_id = ?`, issueID).Scan(&perm); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx,
+			`SELECT count(*) FROM wisp_dependencies WHERE depends_on_id = ?`, issueID).Scan(&wisp); err != nil {
+			return err
+		}
+		n = perm + wisp
+		return nil
+	})
+	return n, err
+}
+
+// CountDependentsByStatus returns the number of dependents in a given status.
+// Mirrors dolt.CountDependentsByStatus (be-7daa14). MySQL can use depends_on_id
+// directly thanks to its real query planner.
+func (s *MySQLStore) CountDependentsByStatus(ctx context.Context, issueID string, status types.Status) (int64, error) {
+	var n int64
+	err := s.withReadTx(ctx, func(tx *sql.Tx) error {
+		var perm, wisp int64
+		if err := tx.QueryRowContext(ctx,
+			`SELECT count(*) FROM dependencies d
+			 JOIN issues i ON i.id = d.issue_id
+			 WHERE d.depends_on_id = ? AND i.status = ?`,
+			issueID, string(status)).Scan(&perm); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx,
+			`SELECT count(*) FROM wisp_dependencies d
+			 JOIN wisps w ON w.id = d.issue_id
+			 WHERE d.depends_on_id = ? AND w.status = ?`,
+			issueID, string(status)).Scan(&wisp); err != nil {
+			return err
+		}
+		n = perm + wisp
+		return nil
+	})
+	return n, err
+}

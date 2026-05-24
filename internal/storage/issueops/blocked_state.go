@@ -50,6 +50,19 @@ func RecomputeIsBlockedInTx(ctx context.Context, tx *sql.Tx, issueIDs, wispIDs [
 	if len(issueIDs) == 0 && len(wispIDs) == 0 {
 		return nil
 	}
+	// Fork patch (gs-4vz): the upstream UPDATE-with-correlated-subquery
+	// templates fail on real MySQL 9 with Error 1093 ("can't specify
+	// target table 'i' for update in FROM clause") because the issues
+	// table appears in both the UPDATE target and the inner SELECT JOIN.
+	// Dolt's go-mysql-server is more permissive and accepts this. Until
+	// the templates are rewritten to materialize the inner SELECT via a
+	// derived table, skip the recompute on mysql backends. Stale
+	// is_blocked values are tolerable: ready-work filtering will be
+	// slightly off until the next bd doctor / explicit recompute, but
+	// no data is lost.
+	if isMySQLBackendTx(ctx, tx) {
+		return nil
+	}
 	for {
 		var changed int64
 
