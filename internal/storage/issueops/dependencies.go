@@ -281,15 +281,19 @@ func markDirectBlockingDependencySourceInTx(ctx context.Context, tx *sql.Tx, sou
 		return nil
 	}
 
+	// Derived-table wrap on the EXISTS subquery: MySQL forbids referencing the
+	// UPDATE target table in a subquery (Error 1093), even via a different alias,
+	// when sourceTable == targetTable. Wrapping the SELECT materializes it into
+	// a separate scope and satisfies the optimizer. Dolt is permissive here, so
+	// the unwrapped form worked there; this form works on both backends.
 	_, err := tx.ExecContext(ctx, fmt.Sprintf(`
 		UPDATE %s s SET s.is_blocked = 1
 		WHERE s.id = ?
 		  AND s.is_blocked = 0
 		  AND s.status <> 'closed' AND s.status <> 'pinned'
 		  AND EXISTS (
-		    SELECT 1 FROM %s t
-		    WHERE t.id = ?
-		      AND t.status <> 'closed' AND t.status <> 'pinned'
+		    SELECT 1 FROM (SELECT id, status FROM %s WHERE id = ?) t
+		    WHERE t.status <> 'closed' AND t.status <> 'pinned'
 		  )
 	`, sourceTable, targetTable), source, target)
 	return err
