@@ -483,6 +483,19 @@ func (s *MySQLStore) CountIssues(ctx context.Context, query string, filter types
 	return n, err
 }
 
+// CountIssuesByGroup returns per-group issue counts. groupBy is one of:
+// status, priority, type, assignee, label.
+// Mirrors dolt.CountIssuesByGroup (added during 2026-05-29 upstream rebase).
+func (s *MySQLStore) CountIssuesByGroup(ctx context.Context, filter types.IssueFilter, groupBy string) (map[string]int, error) {
+	var result map[string]int
+	err := s.withReadTx(ctx, func(tx *sql.Tx) error {
+		var err error
+		result, err = issueops.CountIssuesByGroupInTx(ctx, tx, filter, groupBy)
+		return err
+	})
+	return result, err
+}
+
 // CountIssueComments returns the number of comments on an issue.
 // Mirrors dolt.CountIssueComments (be-7daa14).
 func (s *MySQLStore) CountIssueComments(ctx context.Context, issueID string) (int64, error) {
