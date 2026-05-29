@@ -79,7 +79,6 @@ SET @sql = IF(@needs_migrate = 1,
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @sql = IF(@needs_migrate = 1,
-SET @sql = IF(@needs_migrate = 1,
     'ALTER TABLE wisp_dependencies ADD INDEX idx_wisp_dep_type_target (type, depends_on_id)',
     'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

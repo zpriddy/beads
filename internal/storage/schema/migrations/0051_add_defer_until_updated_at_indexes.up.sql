@@ -1,4 +1,4 @@
--- 0048_add_defer_until_updated_at_indexes.up.sql
+-- 0051_add_defer_until_updated_at_indexes.up.sql
 --
 -- Dolt counterpart of mysql migration 0049: index the columns bd's hot
 -- polling queries filter on (issues.defer_until, issues.updated_at,
