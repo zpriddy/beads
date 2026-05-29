@@ -17,11 +17,11 @@ import (
 // verifies the migration through the package's own discovery + embedding path
 // rather than by applying it. Applying the migration against a real Dolt
 // instance is the manual validation step in the work item.
-func TestMigration0048DeferUntilIndexes(t *testing.T) {
+func TestMigration0051DeferUntilIndexes(t *testing.T) {
 	const (
-		version    = 48
-		upFile     = "0048_add_defer_until_updated_at_indexes.up.sql"
-		downFile   = "0048_add_defer_until_updated_at_indexes.down.sql"
+		version    = 51
+		upFile     = "0051_add_defer_until_updated_at_indexes.up.sql"
+		downFile   = "0051_add_defer_until_updated_at_indexes.down.sql"
 		migrateDir = "migrations"
 	)
 
