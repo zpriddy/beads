@@ -287,3 +287,14 @@ func (t *mysqlTransaction) ImportIssueComment(ctx context.Context, issueID, auth
 func (t *mysqlTransaction) GetIssueComments(ctx context.Context, issueID string) ([]*types.Comment, error) {
 	return issueops.GetIssueCommentsInTx(ctx, t.tx, issueID)
 }
+
+// CycleThroughEdges reports a blocking cycle through one of the new edges,
+// including the transaction's own uncommitted dependency writes. Mirrors
+// embeddeddolt's implementation; mysql uses the same issueops helpers.
+func (t *mysqlTransaction) CycleThroughEdges(ctx context.Context, edges [][2]string) (string, error) {
+	graph := make(map[string][]string)
+	if err := issueops.AppendBlockingGraphInTx(ctx, t.tx, []string{"dependencies", "wisp_dependencies"}, graph); err != nil {
+		return "", err
+	}
+	return issueops.CycleThroughEdgesInGraph(graph, edges), nil
+}

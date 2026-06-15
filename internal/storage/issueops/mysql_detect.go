@@ -2,7 +2,6 @@ package issueops
 
 import (
 	"context"
-	"database/sql"
 	"strings"
 )
 
@@ -15,9 +14,17 @@ import (
 // UPDATE-with-correlated-subquery templates that MySQL 9 rejects with
 // Error 1093 (gs-4vz). Removable once those templates are rewritten
 // to use derived-table joins.
-func isMySQLBackendTx(ctx context.Context, tx *sql.Tx) bool {
+func isMySQLBackendTx(ctx context.Context, tx DBTX) bool {
+	rows, err := tx.QueryContext(ctx, "SELECT @@version_comment")
+	if err != nil {
+		return false
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return false
+	}
 	var versionComment string
-	if err := tx.QueryRowContext(ctx, "SELECT @@version_comment").Scan(&versionComment); err != nil {
+	if err := rows.Scan(&versionComment); err != nil {
 		return false
 	}
 	vc := strings.ToLower(versionComment)

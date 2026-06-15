@@ -10,6 +10,7 @@ import (
 
 	"github.com/steveyegge/beads/internal/config"
 	"github.com/steveyegge/beads/internal/storage"
+	"github.com/steveyegge/beads/internal/storage/domain"
 	"github.com/steveyegge/beads/internal/storage/issueops"
 	"github.com/steveyegge/beads/internal/types"
 )
@@ -102,7 +103,7 @@ func (s *MySQLStore) GetInfraTypes(ctx context.Context) map[string]bool {
 		return nil
 	})
 	if result == nil {
-		typeList := storage.DefaultInfraTypes()
+		typeList := domain.DefaultInfraTypes()
 		result = make(map[string]bool, len(typeList))
 		for _, t := range typeList {
 			result[t] = true
